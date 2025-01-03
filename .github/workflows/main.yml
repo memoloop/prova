@@ -1,0 +1,67 @@
+name: Build and Deploy with PyInstaller
+
+on:
+  push:
+    branches:
+      - main  # Attiva il workflow sui push nel branch principale
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Puoi cambiare con `windows-latest` o `macos-latest` per altre piattaforme
+
+    steps:
+    # Checkout del repository
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Impostazione di Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'  # Specifica la versione di Python
+
+    # Installazione di dipendenze
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    # Compilazione con PyInstaller
+    - name: Build executable
+      run: |
+        pyinstaller --onefile --name MyApp main.py
+      # Cambia `main.py` con il nome del tuo script principale
+
+    # Archiviazione degli artefatti
+    - name: Upload executable
+      uses: actions/upload-artifact@v3
+      with:
+        name: MyApp
+        path: dist/MyApp*  # Modifica in base al nome del tuo file eseguibile
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout del repository
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Download degli artefatti
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: MyApp
+
+    # Pubblicazione su GitHub Releases
+    - name: Deploy to GitHub Releases
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/MyApp*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
