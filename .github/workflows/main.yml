@@ -4,13 +4,11 @@ on:
   push:
     branches:
       - main  # Attiva il workflow sui push nel branch principale
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch: # Permette l'esecuzione manuale del workflow
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Puoi cambiare con `windows-latest` o `macos-latest` per altre piattaforme
+    runs-on: ubuntu-latest
 
     steps:
     # Checkout del repository
@@ -33,17 +31,30 @@ jobs:
     - name: Build executable
       run: |
         pyinstaller --onefile --name MyApp main.py
-      # Cambia `main.py` con il nome del tuo script principale
 
     # Archiviazione degli artefatti
     - name: Upload executable
       uses: actions/upload-artifact@v3
       with:
         name: MyApp
-        path: dist/MyApp*  # Modifica in base al nome del tuo file eseguibile
+        path: dist/MyApp*  # Modifica in base al nome del file eseguibile
+
+  create_tag:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    # Crea un tag se non esiste
+    - name: Create tag
+      run: |
+        TAG_NAME="v$(date +'%Y.%m.%d')"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "$TAG_NAME" -m "Automated release"
+        git push origin "$TAG_NAME"
 
   deploy:
-    needs: build
+    needs: [build, create_tag]
     runs-on: ubuntu-latest
 
     steps:
