@@ -11,67 +11,85 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout del repository
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Checkout del repository
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Impostazione di Python
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'  # Specifica la versione di Python
+      # Impostazione di Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'  # Specifica la versione di Python
 
-    # Installazione di dipendenze
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller
+      # Installazione di PyInstaller
+      - name: Install PyInstaller and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
 
-    # Compilazione con PyInstaller
-    - name: Build executable
-      run: |
-        pyinstaller --onefile --name MyApp main.py
+      # Compilazione con PyInstaller
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --name MyApp main.py
 
-    # Archiviazione degli artefatti
-    - name: Upload executable
-      uses: actions/upload-artifact@v3
-      with:
-        name: MyApp
-        path: dist/MyApp*  # Modifica in base al nome del file eseguibile
+      # Verifica della generazione del file eseguibile
+      - name: Verify build output
+        run: |
+          if [ ! -f "dist/MyApp" ]; then
+            echo "Executable not found!"
+            exit 1
+          fi
+
+      # Archiviazione degli artefatti
+      - name: Upload executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: MyApp
+          path: dist/MyApp  # Specifica il percorso del file eseguibile
 
   create_tag:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-    # Crea un tag se non esiste
-    - name: Create tag
-      run: |
-        TAG_NAME="v$(date +'%Y.%m.%d')"
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git tag -a "$TAG_NAME" -m "Automated release"
-        git push origin "$TAG_NAME"
+      # Checkout del repository con permessi di scrittura
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Necessario per accedere a tutti i riferimenti Git
+
+      # Creazione e push del tag
+      - name: Create and push tag
+        run: |
+          TAG_NAME="v$(date +'%Y.%m.%d')"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists, skipping tag creation."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG_NAME" -m "Automated release"
+            git push origin "$TAG_NAME"
+          fi
 
   deploy:
     needs: [build, create_tag]
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout del repository
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Checkout del repository
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    # Download degli artefatti
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: MyApp
+      # Download degli artefatti
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: MyApp
 
-    # Pubblicazione su GitHub Releases
-    - name: Deploy to GitHub Releases
-      uses: softprops/action-gh-release@v1
-      with:
-        files: dist/MyApp*
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Pubblicazione su GitHub Releases
+      - name: Deploy to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/MyApp  # Specifica il file da pubblicare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
