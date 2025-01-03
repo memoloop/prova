@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'  # Specifica la versione di Python
+          python-version: '3.9'
 
       # Installazione di PyInstaller
       - name: Install PyInstaller and dependencies
@@ -45,18 +45,25 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: MyApp
-          path: dist/MyApp  # Specifica il percorso del file eseguibile
+          path: dist/MyApp
 
   create_tag:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout del repository con permessi di scrittura
+      # Checkout del repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Necessario per accedere a tutti i riferimenti Git
+          fetch-depth: 0
+
+      # Configurazione delle credenziali Git
+      - name: Configure Git credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
 
       # Creazione e push del tag
       - name: Create and push tag
@@ -65,8 +72,6 @@ jobs:
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             echo "Tag $TAG_NAME already exists, skipping tag creation."
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag -a "$TAG_NAME" -m "Automated release"
             git push origin "$TAG_NAME"
           fi
@@ -90,6 +95,6 @@ jobs:
       - name: Deploy to GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/MyApp  # Specifica il file da pubblicare
+          files: dist/MyApp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
